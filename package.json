@@ -1,0 +1,29 @@
+{
+  "name": "wtf-did-you-do",
+  "description": "Figure out what custom changes you made to an xTuple database.",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xtuple/wtf-did-you-do.git"
+  },
+  "author": {
+    "name": "bendiy",
+    "email": "ben@xtuple.com",
+    "url": "http://www.xtuple.com/"
+  },
+  "licenses": [ {
+    "type": "MIT",
+    "url": "http://www.opensource.org/licenses/MIT"
+  } ],
+  "dependencies": {
+    "async": "0.2.x",
+    "pg": "0.14.x",
+    "underscore": "1.4.x",
+    "rimraf": "2.2.x",
+    "mkdirp": "0.3.x"
+  },
+  "engines": {
+    "node": "0.8.x"
+  },
+  "main": "./app.js"
+}

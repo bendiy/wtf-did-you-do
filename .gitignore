@@ -1,0 +1,9 @@
+*.DS_Store
+*.sw*
+*~
+*.backup
+*.deb
+config*
+node_modules
+npm-debug.log
+backup
