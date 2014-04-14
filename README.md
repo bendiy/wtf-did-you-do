@@ -61,10 +61,85 @@ direcotry to a safe location before running this app again.
 
 This app will not modify either database. The commands in
 `./backup/drop_all_custom.sql` can be ran to remove all custom objects from
+your custom database. This is very useful if you are having issues upgrading
 your custom database. However, it is very likely that PostgreSQL will complain
 of referenced dependencies when dropping these objects. You will most likely
 need to re-order the DROP statements in the `drop_all_custom.sql` to drop them
-all cleanly at once.
+all cleanly at once. For example, you may find that you do not need to drop any
+of your custom function for the upgrade to work.  You will also need t add
+`CASCADE` to the DROP SCHEMA statements if you really want to remove them:
+
+    DROP SCHEMA myschema CASCADE;
+
+Example Output
+--------------
+Here is an example of the output this app will generate if you run the
+`tree backup\` command.
+
+    backup/
+    +-- mydb_custom_functions
+    ¦   +-- public.createplannedorder(integer, integer, integer, numeric, date, date, boolean, boolean, integer, text, text, integer).sql
+    ¦   +-- public.defaultps(integer, integer).sql
+    ¦   +-- public.defaultps(integer).sql
+    ¦   +-- public.freightcost(integer).sql
+    ¦   +-- public.getactcost(integer, date).sql
+    ¦   +-- public.temp(integer, integer).sql
+    +-- mydb_custom_views
+    ¦   +-- public.invhist_month.sql
+    ¦   +-- public.invhist_week.sql
+    ¦   +-- public.inv_var.sql
+    ¦   +-- public.itemconv.sql
+    ¦   +-- public.last_two_po.sql
+    ¦   +-- public.margin.sql
+    ¦   +-- public.rpt_saleshist_invc_detail.sql
+    ¦   +-- public.rpt_saleshistsum_detail.sql
+    +-- mydb_missing_functions
+    ¦   +-- public.armor(bytea).sql
+    ¦   +-- public.crypt(text, text).sql
+    ¦   +-- public.dearmor(text).sql
+    ¦   +-- public.decrypt(bytea, bytea, text).sql
+    ¦   +-- public.decrypt_iv(bytea, bytea, bytea, text).sql
+    ¦   +-- public.digest(bytea, text).sql
+    ¦   +-- public.digest(text, text).sql
+    ¦   +-- public.encrypt(bytea, bytea, text).sql
+    ¦   +-- public.encrypt_iv(bytea, bytea, bytea, text).sql
+    ¦   +-- public.gen_salt(text, integer).sql
+    ¦   +-- public.gen_salt(text).sql
+    ¦   +-- public.hmac(bytea, bytea, text).sql
+    ¦   +-- public.hmac(text, text, text).sql
+    ¦   +-- public.pgp_key_id(bytea).sql
+    +-- mydb_overwritten_functions
+    ¦   +-- custom
+    ¦   ¦   +-- public.insertsalesline(api.salesline).sql
+    ¦   ¦   +-- public.saveipsitem(integer, integer, integer, numeric, numeric, integer, integer).sql
+    ¦   ¦   +-- public.saveipsprodcat(integer, integer, integer, numeric, numeric, numeric).sql
+    ¦   ¦   +-- public.updateprice(integer, character, numeric).sql
+    ¦   ¦   +-- public.updateprice(integer, numeric).sql
+    ¦   +-- default
+    ¦       +-- public.insertsalesline(api.salesline).sql
+    ¦       +-- public.saveipsitem(integer, integer, integer, numeric, numeric, integer, integer).sql
+    ¦       +-- public.saveipsprodcat(integer, integer, integer, numeric, numeric, numeric).sql
+    ¦       +-- public.updateprice(integer, character, numeric).sql
+    ¦       +-- public.updateprice(integer, numeric).sql
+    +-- mydb_overwritten_views
+    ¦   +-- custom
+    ¦   ¦   +-- public.address.sql
+    ¦   ¦   +-- public.saleshistorymisc.sql
+    ¦   ¦   +-- public.saleshistory.sql
+    ¦   +-- default
+    ¦       +-- public.address.sql
+    ¦       +-- public.saleshistorymisc.sql
+    ¦       +-- public.saleshistory.sql
+    +-- mydb_schemas
+    ¦   +-- audit.backup
+    ¦   +-- mydb.backup
+    ¦   +-- custom_integration.backup
+    ¦   +-- custom_label.backup
+    ¦   +-- pre380.backup
+    +-- drop_all_custom.sql
+
+    10 directories, 50 files
+
 
 ## Credits
 
