@@ -54,6 +54,10 @@ Make sure PostgreSQL is configured to connect
 ---------------------------------------------
 You may need to edit you pg_hba.conf file or add a `.pgpass` file to this
 directory to ensure the app will run without prompting you for a password.
+It should still work fine, but you will be prompted to enter your postgres
+password once for each schema it backups up. You can avoid this with a
+`.pgpass` file or allowing access in pg_hba.conf.
+
 Please see these sites for more details:
 
 http://www.postgresql.org/docs/current/static/libpq-pgpass.html
