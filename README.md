@@ -50,6 +50,14 @@ The goal is to make the default xTuple database as close to a fresh install of
 your custom database as possible. This will reduce the number of changes this
 app will find to just the important stuff.
 
+Make sure PostgreSQL is configured to connect
+---------------------------------------------
+You may need to edit you pg_hba.conf file or add a `.pgpass` file to this
+directory to ensure the app will run without prompting you for a password.
+Please see these sites for more details:
+http://www.postgresql.org/docs/current/static/libpq-pgpass.html
+http://www.postgresql.org/docs/9.3/static/auth-pg-hba-conf.html
+
 Run the App
 -----------
     node app.js
