@@ -20,6 +20,7 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
       host: 'localhost',
       port: 5432
     },
+    skipSchemas: ['xm', 'xt', 'sys', 'xtbatch'],
     // Set to true to run sql files through sqlformat.org's API.
     // Note: the sqlformat.org API only supports 500 req per day.
     // @See: http://sqlformat.org/api/

@@ -21,7 +21,8 @@ var async = require('async'),
 var customDb = config.customDb,
   defaultDb = config.defaultDb,
   // Set to false to run sql files through sqlformat.org's API.
-  sqlFormat = config.sqlFormat;
+  sqlFormat = config.sqlFormat,
+  skipSchemas = config.skipSchemas;
 
 // Define app vars.
 var application,
@@ -124,35 +125,34 @@ var formatSql = function (fileContents, next) {
   if (!sqlFormat) {
     // Do not format the file. We are limited to 500 requests per day.
     next(fileContents);
-    return;
+  } else {
+    var formatRequest = querystring.stringify(
+      {
+        sql: fileContents,
+        reindent: 1,
+        indent_width: 2
+      }
+    ),
+    req;
+
+    sqlFormatAPI.headers['Content-Length'] = formatRequest.length;
+
+    req = http.request(sqlFormatAPI, function (res) {
+      var data = '';
+
+      res.on('data', function (chunk) {
+        data += chunk;
+      });
+
+      res.on('end', function () {
+        var formattedFileContents = JSON.parse(data);
+        next(formattedFileContents.result);
+      });
+    });
+
+    req.write(formatRequest);
+    req.end();
   }
-
-  var formatRequest = querystring.stringify(
-    {
-      sql: fileContents,
-      reindent: 1,
-      indent_width: 2
-    }
-  ),
-  req;
-
-  sqlFormatAPI.headers['Content-Length'] = formatRequest.length;
-
-  req = http.request(sqlFormatAPI, function (res) {
-    var data = '';
-
-    res.on('data', function (chunk) {
-      data += chunk;
-    });
-
-    res.on('end', function () {
-      var formattedFileContents = JSON.parse(data);
-      next(formattedFileContents.result);
-    });
-  });
-
-  req.write(formatRequest);
-  req.end();
 };
 
 /**
@@ -244,7 +244,7 @@ var setCustomViews = function (result) {
         });
 
     // Ignore xm, xt and sys schemas because we rebuild these views each time in build_app.
-    skipCustomSchemas.push('xm', 'xt', 'sys');
+    skipCustomSchemas.concat(skipSchemas);
 
     if (skipCustomSchemas.length) {
       sql = sql + " where table_schema not in (";
@@ -281,7 +281,7 @@ var setDefaultViews = function (result) {
         });
 
     // Ignore xm, xt and sys schemas because we rebuild these views each time in build_app.
-    skipDefaultSchemas.push('xm', 'xt', 'sys');
+    skipDefaultSchemas.concat(skipSchemas);
 
     if (skipDefaultSchemas.length) {
       sql = sql + " where table_schema not in (";
@@ -332,7 +332,7 @@ var setCustomFunctions = function (result) {
         });
 
     // Ignore xm, xt and sys schemas because we rebuild these functions each time in build_app.
-    skipCustomSchemas.push('xm', 'xt', 'sys');
+    skipCustomSchemas.concat(skipSchemas);
 
     if (skipCustomSchemas.length) {
       sql = sql + " AND n.nspname NOT IN (";
@@ -385,7 +385,7 @@ var setDefaultFunctions = function (result) {
         });
 
     // Ignore xm, xt and sys schemas because we rebuild these functions each time in build_app.
-    skipDefaultSchemas.push('xm', 'xt', 'sys');
+    skipDefaultSchemas.concat(skipSchemas);
 
     if (skipDefaultSchemas.length) {
       sql = sql + " AND n.nspname NOT IN (";
@@ -452,12 +452,11 @@ var backupSchemas = function (dbClient, next) {
 
           child.on('exit', function (code) {
             console.log("Custom Schema " + doneSchema + " Backed Up To: ./" + 'backup/' + customClient.connectionParameters.database + "_schemas/" + doneSchema + ".backup");
-            if (customSchemasDiff.length === backedUpSchemas.length) {
+            var toBackupSchemas = _.difference(customSchemasDiff, skipSchemas);
+            if (toBackupSchemas.length === backedUpSchemas.length) {
               // All custom schemas backed up, continue to next step.
               schemasBackedUp = true;
               next();
-            } else {
-              return;
             }
           });
         }
@@ -472,7 +471,9 @@ var backupSchemas = function (dbClient, next) {
     prepareDirectory(schemaMkDir, function () {
       // Backup each schema. Note: This is async and will run in parallel.
       _.each(customSchemasDiff, function (schema) {
-        backupSchema(customClient, schema, callback);
+        if (skipSchemas.indexOf(schema) === -1) {
+          backupSchema(customClient, schema, callback);
+        }
       });
     });
   } else {
@@ -533,10 +534,14 @@ var backupViews = function (dbClient, next) {
     var missingMkDir = 'backup/' + customClient.connectionParameters.database + "_missing_views";
 
     prepareDirectory(missingMkDir, function () {
-      for (var k = 0; k < defaultViewsDiff.length; k++) {
-        var saveDefaultView = function (value, nextView) {
-          var viewName = value.table_schema + "." + value.table_name;
+      var saveDefaultView = function (value, nextView) {
+        var viewName = value.table_schema + "." + value.table_name,
+          viewMatch = false;
+
+        for (var k = 0; k < defaultViewsDiff.length; k++) {
           if (viewName === defaultViewsDiff[k]) {
+            viewMatch = true;
+
             // Write each missing view to file.
             var fileContents = "CREATE OR REPLACE VIEW " +
                   viewName + " AS " + value.view_definition,
@@ -553,12 +558,17 @@ var backupViews = function (dbClient, next) {
               });
             });
           }
-        };
+        }
 
-        async.map(views.defaultDbDef, saveDefaultView, function (err, results) {
-          // All done!
-        });
-      }
+        if (!viewMatch) {
+          // No match found. On to the next.
+          nextView();
+        }
+      };
+
+      async.map(views.defaultDbDef, saveDefaultView, function (err, results) {
+        // views.defaultDbDef All done!
+      });
     });
   }
 
@@ -570,10 +580,13 @@ var backupViews = function (dbClient, next) {
     var customMkDir = 'backup/' + customClient.connectionParameters.database + "_custom_views";
 
     prepareDirectory(customMkDir, function () {
-      for (var k = 0; k < customViewsDiff.length; k++) {
-        var saveCustomView = function (value, nextView) {
-          var viewName = value.table_schema + "." + value.table_name;
+      var saveCustomView = function (value, nextView) {
+        var viewName = value.table_schema + "." + value.table_name,
+          viewMatch = false;
+
+        for (var k = 0; k < customViewsDiff.length; k++) {
           if (viewName === customViewsDiff[k]) {
+            viewMatch = true;
             // Write each custom view to file.
             var fileContents = "CREATE OR REPLACE VIEW " +
                   viewName + " AS " + value.view_definition,
@@ -587,9 +600,7 @@ var backupViews = function (dbClient, next) {
               }
             });
 
-            dropChild.on('exit', function (code) {
-              return;
-            });
+            dropChild.on('exit', function (code) {});
 
             formatSql(fileContents, function (formattedFileContents) {
               fs.writeFile(fileName, formattedFileContents, function (err, results) {
@@ -601,12 +612,17 @@ var backupViews = function (dbClient, next) {
               });
             });
           }
-        };
+        }
 
-        async.map(views.customDbDef, saveCustomView, function (err, results) {
-          // All done!
-        });
-      }
+        if (!viewMatch) {
+          // No match found. On to the next.
+          nextView();
+        }
+      };
+
+      async.mapSeries(views.customDbDef, saveCustomView, function (err, results) {
+        // views.customDbDef All done!
+      });
     });
   }
 
@@ -696,7 +712,7 @@ var backupViews = function (dbClient, next) {
           };
 
           async.map(overwrittenViewsDef, saveOverwrittenView, function (err, results) {
-            // All done!
+            // overwrittenViewsDef All done!
           });
         });
       });
@@ -758,10 +774,14 @@ var backupFunctions = function (dbClient, next) {
     var missingMkDir = 'backup/' + customClient.connectionParameters.database + "_missing_functions";
 
     prepareDirectory(missingMkDir, function () {
-      for (var k = 0; k < defaultFunctionsDiff.length; k++) {
-        var saveDefaultFunction = function (value, nextFunction) {
-          var functionName = value.func_schema + '.' + value.func_name + '(' + value.func_args + ')';
+      var saveDefaultFunction = function (value, nextFunction) {
+        var functionName = value.func_schema + '.' + value.func_name + '(' + value.func_args + ')',
+          functionMatch = false;
+
+        for (var k = 0; k < defaultFunctionsDiff.length; k++) {
           if (functionName === defaultFunctionsDiff[k]) {
+            functionMatch = true;
+
             // Write each missing function to file.
             var fileContents = value.func_definition,
                 fileName = 'backup/' + customClient.connectionParameters.database + "_missing_functions/" +
@@ -776,12 +796,17 @@ var backupFunctions = function (dbClient, next) {
               nextFunction();
             });
           }
-        };
+        }
 
-        async.map(functions.defaultDbDef, saveDefaultFunction, function (err, results) {
-          // All done!
-        });
-      }
+        if (!functionMatch) {
+          // No match found. On to the next.
+          nextFunction();
+        }
+      };
+
+      async.map(functions.defaultDbDef, saveDefaultFunction, function (err, results) {
+        // functions.defaultDbDef All done!
+      });
     });
   }
 
@@ -793,10 +818,14 @@ var backupFunctions = function (dbClient, next) {
     var customMkDir = 'backup/' + customClient.connectionParameters.database + "_custom_functions";
 
     prepareDirectory(customMkDir, function () {
-      for (var k = 0; k < customFunctionsDiff.length; k++) {
-        var saveCustomFunction = function (value, nextFunction) {
-          var functionName = value.func_schema + '.' + value.func_name + '(' + value.func_args + ')';
+      var saveCustomFunction = function (value, nextFunction) {
+        var functionName = value.func_schema + '.' + value.func_name + '(' + value.func_args + ')',
+          functionMatch = false;
+
+        for (var k = 0; k < customFunctionsDiff.length; k++) {
           if (functionName === customFunctionsDiff[k]) {
+            functionMatch = true;
+
             // Write each custom function to file.
             var fileContents = value.func_definition,
                 fileName = 'backup/' + customClient.connectionParameters.database + "_custom_functions/" +
@@ -809,9 +838,7 @@ var backupFunctions = function (dbClient, next) {
               }
             });
 
-            dropChild.on('exit', function (code) {
-              return;
-            });
+            dropChild.on('exit', function (code) {});
 
             // We do not need to formatSql() the functions.
             fs.writeFile(fileName, fileContents, function (err, results) {
@@ -822,12 +849,17 @@ var backupFunctions = function (dbClient, next) {
               nextFunction();
             });
           }
-        };
+        }
 
-        async.map(functions.customDbDef, saveCustomFunction, function (err, results) {
-          // All done!
-        });
-      }
+        if (!functionMatch) {
+          // No match found. On to the next.
+          nextFunction();
+        }
+      };
+
+      async.map(functions.customDbDef, saveCustomFunction, function (err, results) {
+        // functions.customDbDef All done!
+      });
     });
   }
 
@@ -913,7 +945,7 @@ var backupFunctions = function (dbClient, next) {
           };
 
           async.map(overwrittenFunctionsDef, saveOverwrittenFunction, function (err, results) {
-            // All done!
+            // overwrittenFunctionsDef All done!
           });
         });
       });
@@ -976,9 +1008,7 @@ var application = function () {
       }
     });
 
-    dropChild.on('exit', function (code) {
-      return;
-    });
+    dropChild.on('exit', function (code) {});
 
     console.log("Done");
     customClient.end();
