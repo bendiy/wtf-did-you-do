@@ -13,10 +13,10 @@ Schemas, Views and Functions that are custom to `drop_all_custom.sql`.
 Install the App
 ---------------
     git clone git://github.com/bendiy/wtf-did-you-do.git
+    cd wtf-did-you-do
     npm install
     # Or run that as root if you have problems.
     # sudo npm install
-    cd wtf-did-you-do
 
 Configure the App
 -----------------
