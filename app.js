@@ -168,7 +168,10 @@ var setCustomSchemas = function (result) {
     application();
   } else {
     // Get list of all schemas from customClient database.
-    query(customClient, 'select array_agg(schema_name::text) as schemas from information_schema.schemata', [], setCustomSchemas);
+    query(customClient, "select array_agg(schema_name::text) as schemas from " +
+      "information_schema.schemata where schema_name not like 'pg_toast%' " +
+      "and schema_name not like 'pg_temp%' " +
+      "and schema_name not like 'information_schema'", [], setCustomSchemas);
   }
 };
 
@@ -185,7 +188,10 @@ var setDefaultSchemas = function (result) {
     application();
   } else {
     // Get list of all schemas from defaultClient database.
-    query(defaultClient, 'select array_agg(schema_name::text) as schemas from information_schema.schemata', [], setDefaultSchemas);
+    query(defaultClient, "select array_agg(schema_name::text) as schemas from " +
+      "information_schema.schemata where schema_name not like 'pg_toast%' " +
+      "and schema_name not like 'pg_temp%' " +
+      "and schema_name not like 'information_schema'", [], setDefaultSchemas);
   }
 };
 
