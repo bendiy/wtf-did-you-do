@@ -498,23 +498,25 @@ var backupViews = function (dbClient, next) {
       "overwritten": []
     },
     callback = function (type, doneView) {
-      if (type === 'def') {
+      if (type === 'def' && doneView) {
         backedUpViews.def.push(doneView);
-      } else if (type === 'custom') {
+      } else if (type === 'custom' && doneView) {
         console.log("Custom View " + doneView + " Backed Up To: ./" + 'backup/' + customClient.connectionParameters.database + "_custom_views/" + doneView + ".sql");
         backedUpViews.custom.push(doneView);
-      } else if (type === 'overwritten') {
+      } else if (type === 'overwritten' && doneView) {
         console.log("Overwritten View " + doneView + " Backed Up To: ./" + 'backup/' + customClient.connectionParameters.database + "_overwritten_views/custom/" + doneView + ".sql");
         backedUpViews.overwritten.push(doneView);
       }
 
-      if (backedUpViews.def.length === defaultViewsDiff.length &&
-        backedUpViews.custom.length === customViewsDiff.length &&
-        backedUpViews.overwritten.length === overwrittenViewsDiff.length) {
+      if (overwrittenViewsDiff) {
+        if (backedUpViews.def.length === defaultViewsDiff.length &&
+          backedUpViews.custom.length === customViewsDiff.length &&
+          backedUpViews.overwritten.length === overwrittenViewsDiff.length) {
 
-        // Done with Views, move on.
-        viewsBackedUp = true;
-        next();
+          // Done with Views, move on.
+          viewsBackedUp = true;
+          next();
+        }
       }
     };
 
@@ -576,6 +578,8 @@ var backupViews = function (dbClient, next) {
         // views.defaultDbDef All done!
       });
     });
+  } else {
+    callback('def', null);
   }
 
   // Write custom views to files.
@@ -630,6 +634,8 @@ var backupViews = function (dbClient, next) {
         // views.customDbDef All done!
       });
     });
+  } else {
+    callback('custom', null);
   }
 
   // Check if the view_definition matches.
@@ -723,6 +729,8 @@ var backupViews = function (dbClient, next) {
         });
       });
     });
+  } else {
+    callback('overwritten', null);
   }
 };
 
@@ -738,23 +746,25 @@ var backupFunctions = function (dbClient, next) {
       "overwritten": []
     },
     callback = function (type, doneFunction) {
-      if (type === 'def') {
+      if (type === 'def' && doneFunction) {
         backedUpFunctions.def.push(doneFunction);
-      } else if (type === 'custom') {
+      } else if (type === 'custom' && doneFunction) {
         console.log("Custom Function " + doneFunction + " Backed Up To: ./" + 'backup/' + customClient.connectionParameters.database + "_custom_functions/" + doneFunction + ".sql");
         backedUpFunctions.custom.push(doneFunction);
-      } else if (type === 'overwritten') {
+      } else if (type === 'overwritten' && doneFunction) {
         console.log("Overwritten Function " + doneFunction + " Backed Up To: ./" + 'backup/' + customClient.connectionParameters.database + "_overwritten_functions/custom/" + doneFunction + ".sql");
         backedUpFunctions.overwritten.push(doneFunction);
       }
 
-      if (backedUpFunctions.def.length === defaultFunctionsDiff.length &&
-        backedUpFunctions.custom.length === customFunctionsDiff.length &&
-        backedUpFunctions.overwritten.length === overwrittenFunctionsDiff.length) {
+      if (overwrittenFunctionsDiff) {
+        if (backedUpFunctions.def.length === defaultFunctionsDiff.length &&
+          backedUpFunctions.custom.length === customFunctionsDiff.length &&
+          backedUpFunctions.overwritten.length === overwrittenFunctionsDiff.length) {
 
-        // Done with Functions, move on.
-        functionsBackedUp = true;
-        next();
+          // Done with Functions, move on.
+          functionsBackedUp = true;
+          next();
+        }
       }
     };
 
@@ -814,6 +824,8 @@ var backupFunctions = function (dbClient, next) {
         // functions.defaultDbDef All done!
       });
     });
+  } else {
+    callback('def', null);
   }
 
   // Write custom functions to files.
@@ -867,6 +879,8 @@ var backupFunctions = function (dbClient, next) {
         // functions.customDbDef All done!
       });
     });
+  } else {
+    callback('custom', null);
   }
 
   // Check if the func_definition matches.
@@ -956,6 +970,8 @@ var backupFunctions = function (dbClient, next) {
         });
       });
     });
+  } else {
+    callback('overwritten', null);
   }
 };
 
