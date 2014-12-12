@@ -26,12 +26,12 @@ Configure the App
     # Using Vi to edit the config file:
     vi config.js
 Modify the config.js file to connect to your databases and specify if you want
-to run the sql files created by this app through sqlformat.org's API.
+to run the sql files created by this app through [sqlformat.org's API](http://sqlformat.org/).
 
 Setup the default xTuple database
 ---------------------------------
 This app will look at one default xTuple database and compare it to your custom
-database. To ensure best result is it recommended you create a default xTuple
+database. To ensure best result it is recommended you create a default xTuple
 database that is on the same release and version of xTuple as your custom
 database.
 
